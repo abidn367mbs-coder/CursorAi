@@ -1,0 +1,23 @@
+{
+  "name": "CursorAi Android",
+  "image": "mcr.microsoft.com/devcontainers/java:1-17-bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/android-sdk:2": {
+      "installAndroidBuildTools": true,
+      "installNdk": false,
+      "androidVersion": "35",
+      "buildToolsVersion": "35.0.0"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "fwcd.kotlin",
+        "vscjava.vscode-gradle",
+        "redhat.java"
+      ]
+    }
+  },
+  "postCreateCommand": "./gradlew tasks",
+  "remoteUser": "vscode"
+}
