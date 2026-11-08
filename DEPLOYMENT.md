@@ -41,6 +41,8 @@ SELF_HOSTED_MODEL=your-coding-model
 
 Self-hosted servers should expose an OpenAI-compatible `POST /v1/chat/completions` endpoint. The backend accepts only the three supported provider identifiers and routes requests to the matching server-side configuration.
 
+For a local `llama-server` running in the same Termux phone, use `SELF_HOSTED_BASE_URL=http://127.0.0.1:8081`, `SELF_HOSTED_MODEL=local-model`, and leave `SELF_HOSTED_API_KEY` empty. The CursorAi backend now omits the Authorization header when this key is blank, which matches the default local llama.cpp server behavior. `host.docker.internal` is for container-to-host networking and is not the right address for a normal Termux process.
+
 NVIDIA NIM uses the OpenAI-compatible endpoint `https://integrate.api.nvidia.com/v1/chat/completions`. The NVIDIA API key remains on the backend. Model IDs such as `meta/llama-3.1-70b-instruct` and `google/codegemma-7b` can be entered in the app; use NVIDIA's current Model Catalog for the exact Nemotron model ID available to your account.
 
 ## 2. Point the Android app at the backend

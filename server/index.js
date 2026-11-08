@@ -70,12 +70,14 @@ async function chat(body) {
   if (provider === "anthropic") return anthropicChat(messages, context, selectedModel);
   const baseUrl = provider === "self-hosted" ? selfHostedBaseUrl : provider === "nvidia" ? "https://integrate.api.nvidia.com" : "https://api.openai.com";
   const key = provider === "self-hosted" ? selfHostedKey : provider === "nvidia" ? nvidiaKey : apiKey;
-  if (!key) throw new Error(`${provider === "self-hosted" ? "SELF_HOSTED_API_KEY" : provider === "nvidia" ? "NVIDIA_API_KEY" : "OPENAI_API_KEY"} is not configured on the server`);
+  if (!key && provider !== "self-hosted") throw new Error(`${provider === "nvidia" ? "NVIDIA_API_KEY" : "OPENAI_API_KEY"} is not configured on the server`);
   if (!baseUrl) throw new Error("SELF_HOSTED_BASE_URL is not configured on the server");
   const completionsUrl = baseUrl.endsWith("/v1") ? `${baseUrl}/chat/completions` : `${baseUrl}/v1/chat/completions`;
+  const upstreamHeaders = { "Content-Type": "application/json" };
+  if (key) upstreamHeaders.Authorization = `Bearer ${key}`;
   const upstream = await fetch(completionsUrl, {
     method: "POST",
-    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+    headers: upstreamHeaders,
     body: JSON.stringify({ model: selectedModel, messages: [system, ...messages], temperature: 0.2, max_tokens: 1200 }),
   });
   const data = await upstream.json();
