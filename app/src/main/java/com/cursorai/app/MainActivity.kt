@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -119,7 +118,7 @@ private fun CursorAiApp() {
                         FileExplorer(activeFile = activeFile, onFileSelected = { activeFile = it })
                         Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
                             EditorHeader(activeFile = activeFile)
-                            CodeEditor(activeFile = activeFile)
+                            CodeEditor(activeFile = activeFile, modifier = Modifier.weight(1f))
                             BottomPanel(isRunning = isRunning, onRun = { isRunning = true })
                         }
                         PromptPanel(
@@ -245,11 +244,11 @@ private fun EditorHeader(activeFile: String) {
 }
 
 @Composable
-private fun CodeEditor(activeFile: String) {
+private fun CodeEditor(activeFile: String, modifier: Modifier = Modifier) {
     val code = if (activeFile == "MainActivity.kt") listOf(
         "package com.cursorai.app", "", "import android.os.Bundle", "import androidx.activity.ComponentActivity", "import androidx.activity.compose.setContent", "", "class MainActivity : ComponentActivity() {", "    override fun onCreate(savedInstanceState: Bundle?) {", "        super.onCreate(savedInstanceState)", "        setContent {", "            CursorAiApp()", "        }", "    }", "}"
     ) else listOf("package com.cursorai.app", "", "// Shared theme tokens live here", "// Ask the AI assistant to refactor this file.")
-    Column(modifier = Modifier.weight(1f).fillMaxWidth().background(Color(0xFF0B1120)).verticalScroll(rememberScrollState()).padding(vertical = 14.dp)) {
+    Column(modifier = modifier.fillMaxWidth().background(Color(0xFF0B1120)).verticalScroll(rememberScrollState()).padding(vertical = 14.dp)) {
         code.forEachIndexed { index, line ->
             Row(modifier = Modifier.fillMaxWidth().height(23.dp)) {
                 Text("%3d".format(index + 1), color = Color(0xFF4F6085), fontFamily = FontFamily.Monospace, fontSize = 12.sp, modifier = Modifier.width(42.dp).padding(end = 12.dp))
