@@ -4,6 +4,9 @@ const port = Number(process.env.PORT || 8080);
 const host = process.env.HOST || "0.0.0.0";
 const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
 const apiKey = process.env.OPENAI_API_KEY;
+const anthropicKey = process.env.ANTHROPIC_API_KEY;
+const selfHostedBaseUrl = (process.env.SELF_HOSTED_BASE_URL || "").replace(/\/$/, "");
+const selfHostedKey = process.env.SELF_HOSTED_API_KEY || "";
 const clientToken = process.env.CURSORAI_CLIENT_TOKEN;
 const maxBodyBytes = 128 * 1024;
 const rateWindowMs = 60_000;
@@ -52,7 +55,7 @@ async function readJson(req) {
 }
 
 async function chat(body) {
-  if (!apiKey) throw new Error("OPENAI_API_KEY is not configured on the server");
+  const provider = ["openai", "anthropic", "self-hosted"].includes(body.provider) ? body.provider : "openai";
   const messages = Array.isArray(body.messages) ? body.messages.slice(-20) : [];
   if (!messages.length || !messages.some((item) => item.role === "user" && String(item.content || "").trim())) {
     throw new Error("At least one user message is required");
@@ -62,20 +65,39 @@ async function chat(body) {
     role: "system",
     content: "You are CursorAi, a careful coding assistant. Give actionable plans, explain assumptions, and prefer small reviewable changes. Never claim that code was run unless tool output is provided. Project context:\n" + context,
   };
-  const upstream = await fetch("https://api.openai.com/v1/chat/completions", {
+  const selectedModel = String(body.model || "").slice(0, 120) || (provider === "anthropic" ? process.env.ANTHROPIC_MODEL || "claude-3-5-haiku-latest" : provider === "self-hosted" ? process.env.SELF_HOSTED_MODEL || "your-coding-model" : model);
+  if (provider === "anthropic") return anthropicChat(messages, context, selectedModel);
+  const baseUrl = provider === "self-hosted" ? selfHostedBaseUrl : "https://api.openai.com";
+  const key = provider === "self-hosted" ? selfHostedKey : apiKey;
+  if (!key) throw new Error(`${provider === "self-hosted" ? "SELF_HOSTED_API_KEY" : "OPENAI_API_KEY"} is not configured on the server`);
+  if (!baseUrl) throw new Error("SELF_HOSTED_BASE_URL is not configured on the server");
+  const completionsUrl = baseUrl.endsWith("/v1") ? `${baseUrl}/chat/completions` : `${baseUrl}/v1/chat/completions`;
+  const upstream = await fetch(completionsUrl, {
     method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ model, messages: [system, ...messages], temperature: 0.2, max_tokens: 1200 }),
+    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ model: selectedModel, messages: [system, ...messages], temperature: 0.2, max_tokens: 1200 }),
   });
   const data = await upstream.json();
   if (!upstream.ok) throw new Error(data?.error?.message || `OpenAI request failed (${upstream.status})`);
-  return { model, message: data.choices?.[0]?.message?.content || "No response returned" };
+  return { provider, model: selectedModel, message: data.choices?.[0]?.message?.content || "No response returned" };
+}
+
+async function anthropicChat(messages, context, selectedModel) {
+  if (!anthropicKey) throw new Error("ANTHROPIC_API_KEY is not configured on the server");
+  const upstream = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "x-api-key": anthropicKey, "anthropic-version": "2023-06-01", "Content-Type": "application/json" },
+    body: JSON.stringify({ model: selectedModel, system: "You are CursorAi, a careful coding assistant. Project context:\n" + context, messages, max_tokens: 1200 }),
+  });
+  const data = await upstream.json();
+  if (!upstream.ok) throw new Error(data?.error?.message || `Claude request failed (${upstream.status})`);
+  return { provider: "anthropic", model: selectedModel, message: data.content?.map((item) => item.text || "").join("") || "No response returned" };
 }
 
 const server = http.createServer(async (req, res) => {
   try {
     if (req.method === "OPTIONS") return send(res, 204, {});
-    if (req.method === "GET" && req.url === "/health") return send(res, 200, { ok: true, provider: "openai", model });
+    if (req.method === "GET" && req.url === "/health") return send(res, 200, { ok: true, providers: ["openai", "anthropic", "self-hosted"], model });
     if (req.method !== "POST" || req.url !== "/v1/chat") return send(res, 404, { error: "Not found" });
     if (!allowed(req)) return send(res, 401, { error: "Invalid client token" });
     if (!withinRateLimit(req)) return send(res, 429, { error: "Rate limit exceeded" });

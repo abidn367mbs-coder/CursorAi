@@ -1,5 +1,6 @@
 package com.cursorai.app
 
+import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -23,6 +24,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Code
@@ -52,6 +54,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -60,6 +63,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.cursorai.app.ai.AiAssistant
+import com.cursorai.app.ai.AssistantSettings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -83,48 +87,63 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 private fun CursorAiApp() {
+    val context = LocalContext.current
     var prompt by remember { mutableStateOf("") }
     var activeFile by remember { mutableStateOf("MainActivity.kt") }
     var isRunning by remember { mutableStateOf(false) }
     var answer by remember { mutableStateOf("") }
     var error by remember { mutableStateOf("") }
     var isThinking by remember { mutableStateOf(false) }
+    var settings by remember { mutableStateOf(loadAssistantSettings(context)) }
+    var showSettings by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    val assistant = remember { AiAssistant() }
+    val assistant = remember(settings) { AiAssistant(settings) }
     MaterialTheme {
         Surface(modifier = Modifier.fillMaxSize(), color = Navy) {
-            Column {
-                TopBar(onBuild = { isRunning = true })
-                Row(modifier = Modifier.fillMaxSize()) {
-                    ActivityRail()
-                    FileExplorer(activeFile = activeFile, onFileSelected = { activeFile = it })
-                    Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
-                        EditorHeader(activeFile = activeFile)
-                        CodeEditor(activeFile = activeFile)
-                        BottomPanel(isRunning = isRunning, onRun = { isRunning = true })
-                    }
-                    PromptPanel(
-                        prompt = prompt,
-                        answer = answer,
-                        error = error,
-                        isThinking = isThinking,
-                        onPromptChange = { prompt = it },
-                        onSend = {
-                            if (prompt.isNotBlank() && !isThinking) {
-                                val requestedPrompt = prompt.trim()
-                                prompt = ""
-                                answer = ""
-                                error = ""
-                                isThinking = true
-                                scope.launch {
-                                    val result = withContext(Dispatchers.IO) { assistant.ask(requestedPrompt) }
-                                    result.onSuccess { answer = it }
-                                        .onFailure { error = it.message ?: "Unable to reach the AI service" }
-                                    isThinking = false
+            if (showSettings) {
+                SettingsScreen(
+                    settings = settings,
+                    onBack = { showSettings = false },
+                    onSave = {
+                        settings = it
+                        saveAssistantSettings(context, it)
+                        showSettings = false
+                    },
+                )
+            } else {
+                Column {
+                    TopBar(onBuild = { isRunning = true }, providerName = settings.displayProvider, onSettings = { showSettings = true })
+                    Row(modifier = Modifier.fillMaxSize()) {
+                        ActivityRail()
+                        FileExplorer(activeFile = activeFile, onFileSelected = { activeFile = it })
+                        Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                            EditorHeader(activeFile = activeFile)
+                            CodeEditor(activeFile = activeFile)
+                            BottomPanel(isRunning = isRunning, onRun = { isRunning = true })
+                        }
+                        PromptPanel(
+                            prompt = prompt,
+                            answer = answer,
+                            error = error,
+                            isThinking = isThinking,
+                            onPromptChange = { prompt = it },
+                            onSend = {
+                                if (prompt.isNotBlank() && !isThinking) {
+                                    val requestedPrompt = prompt.trim()
+                                    prompt = ""
+                                    answer = ""
+                                    error = ""
+                                    isThinking = true
+                                    scope.launch {
+                                        val result = withContext(Dispatchers.IO) { assistant.ask(requestedPrompt) }
+                                        result.onSuccess { answer = it }
+                                            .onFailure { error = it.message ?: "Unable to reach the AI service" }
+                                        isThinking = false
+                                    }
                                 }
                             }
-                        }
-                    )
+                        )
+                    }
                 }
             }
         }
@@ -132,7 +151,7 @@ private fun CursorAiApp() {
 }
 
 @Composable
-private fun TopBar(onBuild: () -> Unit) {
+private fun TopBar(onBuild: () -> Unit, providerName: String, onSettings: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth().height(58.dp).background(Panel).padding(horizontal = 14.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -140,7 +159,7 @@ private fun TopBar(onBuild: () -> Unit) {
         Icon(Icons.Default.Code, contentDescription = null, tint = Blue, modifier = Modifier.size(25.dp))
         Spacer(Modifier.width(8.dp))
         Text("CursorAi", color = TextMain, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-        Text("  /  mobile-workspace", color = TextMuted, fontSize = 13.sp)
+        Text("  /  $providerName", color = TextMuted, fontSize = 13.sp)
         Spacer(Modifier.weight(1f))
         TextButton(onClick = { }) { Text("Share", color = TextMuted) }
         Button(
@@ -152,7 +171,7 @@ private fun TopBar(onBuild: () -> Unit) {
             Spacer(Modifier.width(5.dp))
             Text("Build", fontWeight = FontWeight.Bold)
         }
-        IconButton(onClick = { }) { Icon(Icons.Default.Settings, contentDescription = "Settings", tint = TextMuted) }
+        IconButton(onClick = onSettings) { Icon(Icons.Default.Settings, contentDescription = "Settings", tint = TextMuted) }
     }
 }
 
@@ -315,5 +334,79 @@ private fun QuickAction(label: String, icon: androidx.compose.ui.graphics.vector
         Icon(icon, contentDescription = null, tint = Blue, modifier = Modifier.size(16.dp))
         Spacer(Modifier.width(8.dp))
         Text(label, color = TextMain, fontSize = 12.sp)
+    }
+}
+
+private fun loadAssistantSettings(context: Context): AssistantSettings {
+    val prefs = context.getSharedPreferences("cursorai_settings", Context.MODE_PRIVATE)
+    return AssistantSettings(
+        provider = prefs.getString("provider", "openai") ?: "openai",
+        model = prefs.getString("model", "gpt-4o-mini") ?: "gpt-4o-mini",
+        baseUrl = prefs.getString("baseUrl", "") ?: "",
+    )
+}
+
+private fun saveAssistantSettings(context: Context, settings: AssistantSettings) {
+    context.getSharedPreferences("cursorai_settings", Context.MODE_PRIVATE).edit()
+        .putString("provider", settings.provider)
+        .putString("model", settings.model)
+        .putString("baseUrl", settings.baseUrl)
+        .apply()
+}
+
+@Composable
+private fun SettingsScreen(settings: AssistantSettings, onBack: () -> Unit, onSave: (AssistantSettings) -> Unit) {
+    var selectedProvider by remember(settings) { mutableStateOf(settings.provider) }
+    var model by remember(settings) { mutableStateOf(settings.model) }
+    var baseUrl by remember(settings) { mutableStateOf(settings.baseUrl) }
+    Column(modifier = Modifier.fillMaxSize().background(Navy).verticalScroll(rememberScrollState())) {
+        Row(
+            modifier = Modifier.fillMaxWidth().height(58.dp).background(Panel).padding(horizontal = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = TextMain) }
+            Text("AI Provider Settings", color = TextMain, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        }
+        Column(modifier = Modifier.width(520.dp).padding(22.dp)) {
+            Text("Choose a provider", color = TextMain, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            Text("The app sends the selection to your secure backend. Provider API keys never belong in the APK.", color = TextMuted, fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp))
+            Spacer(Modifier.height(16.dp))
+            ProviderOption("openai", "OpenAI", "GPT models through the configured server key", selectedProvider == "openai") {
+                selectedProvider = "openai"
+                if (model == "claude-3-5-haiku-latest" || model == "your-coding-model") model = "gpt-4o-mini"
+            }
+            ProviderOption("anthropic", "Claude", "Anthropic models through the configured server key", selectedProvider == "anthropic") {
+                selectedProvider = "anthropic"
+                if (model == "gpt-4o-mini" || model == "your-coding-model") model = "claude-3-5-haiku-latest"
+            }
+            ProviderOption("self-hosted", "Self-hosted model", "OpenAI-compatible endpoint such as vLLM or Ollama", selectedProvider == "self-hosted") {
+                selectedProvider = "self-hosted"
+                if (model == "gpt-4o-mini" || model == "claude-3-5-haiku-latest") model = "your-coding-model"
+            }
+            Spacer(Modifier.height(18.dp))
+            Text("MODEL CONFIGURATION", color = TextMuted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            OutlinedTextField(value = model, onValueChange = { model = it }, label = { Text("Model name") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+            OutlinedTextField(value = baseUrl, onValueChange = { baseUrl = it }, label = { Text("Optional backend URL override") }, placeholder = { Text("Uses build default when blank") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+            Text("For production, use an HTTPS backend. Leave this blank to use the URL configured at build time.", color = TextMuted, fontSize = 11.sp, modifier = Modifier.padding(top = 6.dp))
+            Spacer(Modifier.height(18.dp))
+            Button(onClick = { onSave(AssistantSettings(selectedProvider, model.trim(), baseUrl.trim())) }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Blue, contentColor = Navy), shape = RoundedCornerShape(7.dp)) {
+                Text("Save provider settings", fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProviderOption(id: String, title: String, subtitle: String, selected: Boolean, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(top = 8.dp).background(if (selected) PanelAlt else Panel, RoundedCornerShape(8.dp)).clickable { onClick() }.padding(14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(modifier = Modifier.size(18.dp).background(if (selected) Blue else Border, RoundedCornerShape(9.dp)))
+        Spacer(Modifier.width(12.dp))
+        Column {
+            Text(title, color = TextMain, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+            Text(subtitle, color = TextMuted, fontSize = 11.sp, modifier = Modifier.padding(top = 3.dp))
+        }
     }
 }

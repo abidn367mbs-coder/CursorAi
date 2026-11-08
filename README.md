@@ -6,6 +6,7 @@ CursorAi is an Android Studio-ready Kotlin + Jetpack Compose prototype for a pro
 
 - Dark IDE-style workspace with activity rail, file explorer, editor, terminal/output panel, and AI workspace.
 - Prompt composer with quick actions for explaining files, finding bugs, and preparing a release build.
+- Provider selector and local settings screen for OpenAI, Claude, and OpenAI-compatible self-hosted models.
 - Build status and APK-oriented workflow placeholders.
 - Gradle version catalog and GitHub Actions workflow that builds and uploads a debug APK.
 - Dev Container configuration for GitHub Codespaces with Android SDK and VS Code extensions.
@@ -33,3 +34,5 @@ Keep UI state independent from the provider. A recommended next step is to add a
 ## Current limitations
 
 The AI Workspace now calls the included OpenAI backend. The editor, project file system, and terminal remain intentionally scoped UI surfaces; arbitrary code execution and file mutation need an additional sandbox/permission layer before enabling them in production. See [DEPLOYMENT.md](DEPLOYMENT.md) for backend setup, API configuration, and release signing.
+
+Open the gear icon in the app to choose a provider and model. The selection is stored in Android local preferences and sent as metadata to the backend; provider credentials remain server-side.

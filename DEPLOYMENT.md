@@ -23,6 +23,22 @@ docker run --rm -p 8080:8080 \
 
 Set `CORS_ORIGIN` to a specific web origin when a web client is added. Use HTTPS in every hosted environment. Configure provider spending limits and monitoring in the OpenAI dashboard.
 
+## Provider configuration
+
+The app's Settings screen can select OpenAI, Claude, or a self-hosted OpenAI-compatible model. Configure the corresponding server-side secrets in `server/.env`; never put provider keys in the Android project.
+
+```env
+OPENAI_API_KEY=...
+OPENAI_MODEL=gpt-4o-mini
+ANTHROPIC_API_KEY=...
+ANTHROPIC_MODEL=claude-3-5-haiku-latest
+SELF_HOSTED_BASE_URL=http://host.docker.internal:8000
+SELF_HOSTED_API_KEY=...
+SELF_HOSTED_MODEL=your-coding-model
+```
+
+Self-hosted servers should expose an OpenAI-compatible `POST /v1/chat/completions` endpoint. The backend accepts only the three supported provider identifiers and routes requests to the matching server-side configuration.
+
 ## 2. Point the Android app at the backend
 
 For an emulator, the default URL is `http://10.0.2.2:8080`. For a physical phone or hosted backend, add these Gradle properties in `~/.gradle/gradle.properties` or pass them on the command line:
