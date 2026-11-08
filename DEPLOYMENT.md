@@ -32,12 +32,16 @@ OPENAI_API_KEY=...
 OPENAI_MODEL=gpt-4o-mini
 ANTHROPIC_API_KEY=...
 ANTHROPIC_MODEL=claude-3-5-haiku-latest
+NVIDIA_API_KEY=nvapi-...
+NVIDIA_MODEL=meta/llama-3.1-70b-instruct
 SELF_HOSTED_BASE_URL=http://host.docker.internal:8000
 SELF_HOSTED_API_KEY=...
 SELF_HOSTED_MODEL=your-coding-model
 ```
 
 Self-hosted servers should expose an OpenAI-compatible `POST /v1/chat/completions` endpoint. The backend accepts only the three supported provider identifiers and routes requests to the matching server-side configuration.
+
+NVIDIA NIM uses the OpenAI-compatible endpoint `https://integrate.api.nvidia.com/v1/chat/completions`. The NVIDIA API key remains on the backend. Model IDs such as `meta/llama-3.1-70b-instruct` and `google/codegemma-7b` can be entered in the app; use NVIDIA's current Model Catalog for the exact Nemotron model ID available to your account.
 
 ## 2. Point the Android app at the backend
 

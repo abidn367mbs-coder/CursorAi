@@ -379,13 +379,20 @@ private fun SettingsScreen(settings: AssistantSettings, onBack: () -> Unit, onSa
                 selectedProvider = "anthropic"
                 if (model == "gpt-4o-mini" || model == "your-coding-model") model = "claude-3-5-haiku-latest"
             }
+            ProviderOption("nvidia", "NVIDIA NIM", "Llama, Gemma and Nemotron through NVIDIA API", selectedProvider == "nvidia") {
+                selectedProvider = "nvidia"
+                if (model == "gpt-4o-mini" || model == "claude-3-5-haiku-latest" || model == "your-coding-model") model = "meta/llama-3.1-70b-instruct"
+            }
             ProviderOption("self-hosted", "Self-hosted model", "OpenAI-compatible endpoint such as vLLM or Ollama", selectedProvider == "self-hosted") {
                 selectedProvider = "self-hosted"
-                if (model == "gpt-4o-mini" || model == "claude-3-5-haiku-latest") model = "your-coding-model"
+                if (model == "gpt-4o-mini" || model == "claude-3-5-haiku-latest" || model == "meta/llama-3.1-70b-instruct") model = "your-coding-model"
             }
             Spacer(Modifier.height(18.dp))
             Text("MODEL CONFIGURATION", color = TextMuted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
             OutlinedTextField(value = model, onValueChange = { model = it }, label = { Text("Model name") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+            if (selectedProvider == "nvidia") {
+                Text("Examples: meta/llama-3.1-70b-instruct · google/gemma-7b · choose a Nemotron ID from NVIDIA Model Catalog", color = TextMuted, fontSize = 11.sp, modifier = Modifier.padding(top = 6.dp))
+            }
             OutlinedTextField(value = baseUrl, onValueChange = { baseUrl = it }, label = { Text("Optional backend URL override") }, placeholder = { Text("Uses build default when blank") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
             Text("For production, use an HTTPS backend. Leave this blank to use the URL configured at build time.", color = TextMuted, fontSize = 11.sp, modifier = Modifier.padding(top = 6.dp))
             Spacer(Modifier.height(18.dp))

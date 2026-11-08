@@ -8,6 +8,7 @@ data class AssistantSettings(
     val displayProvider: String
         get() = when (provider) {
             "anthropic" -> "Claude"
+            "nvidia" -> "NVIDIA NIM"
             "self-hosted" -> "Self-hosted"
             else -> "OpenAI"
         }

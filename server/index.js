@@ -5,6 +5,7 @@ const host = process.env.HOST || "0.0.0.0";
 const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
 const apiKey = process.env.OPENAI_API_KEY;
 const anthropicKey = process.env.ANTHROPIC_API_KEY;
+const nvidiaKey = process.env.NVIDIA_API_KEY;
 const selfHostedBaseUrl = (process.env.SELF_HOSTED_BASE_URL || "").replace(/\/$/, "");
 const selfHostedKey = process.env.SELF_HOSTED_API_KEY || "";
 const clientToken = process.env.CURSORAI_CLIENT_TOKEN;
@@ -55,7 +56,7 @@ async function readJson(req) {
 }
 
 async function chat(body) {
-  const provider = ["openai", "anthropic", "self-hosted"].includes(body.provider) ? body.provider : "openai";
+  const provider = ["openai", "anthropic", "nvidia", "self-hosted"].includes(body.provider) ? body.provider : "openai";
   const messages = Array.isArray(body.messages) ? body.messages.slice(-20) : [];
   if (!messages.length || !messages.some((item) => item.role === "user" && String(item.content || "").trim())) {
     throw new Error("At least one user message is required");
@@ -65,11 +66,11 @@ async function chat(body) {
     role: "system",
     content: "You are CursorAi, a careful coding assistant. Give actionable plans, explain assumptions, and prefer small reviewable changes. Never claim that code was run unless tool output is provided. Project context:\n" + context,
   };
-  const selectedModel = String(body.model || "").slice(0, 120) || (provider === "anthropic" ? process.env.ANTHROPIC_MODEL || "claude-3-5-haiku-latest" : provider === "self-hosted" ? process.env.SELF_HOSTED_MODEL || "your-coding-model" : model);
+  const selectedModel = String(body.model || "").slice(0, 120) || (provider === "anthropic" ? process.env.ANTHROPIC_MODEL || "claude-3-5-haiku-latest" : provider === "nvidia" ? process.env.NVIDIA_MODEL || "meta/llama-3.1-70b-instruct" : provider === "self-hosted" ? process.env.SELF_HOSTED_MODEL || "your-coding-model" : model);
   if (provider === "anthropic") return anthropicChat(messages, context, selectedModel);
-  const baseUrl = provider === "self-hosted" ? selfHostedBaseUrl : "https://api.openai.com";
-  const key = provider === "self-hosted" ? selfHostedKey : apiKey;
-  if (!key) throw new Error(`${provider === "self-hosted" ? "SELF_HOSTED_API_KEY" : "OPENAI_API_KEY"} is not configured on the server`);
+  const baseUrl = provider === "self-hosted" ? selfHostedBaseUrl : provider === "nvidia" ? "https://integrate.api.nvidia.com" : "https://api.openai.com";
+  const key = provider === "self-hosted" ? selfHostedKey : provider === "nvidia" ? nvidiaKey : apiKey;
+  if (!key) throw new Error(`${provider === "self-hosted" ? "SELF_HOSTED_API_KEY" : provider === "nvidia" ? "NVIDIA_API_KEY" : "OPENAI_API_KEY"} is not configured on the server`);
   if (!baseUrl) throw new Error("SELF_HOSTED_BASE_URL is not configured on the server");
   const completionsUrl = baseUrl.endsWith("/v1") ? `${baseUrl}/chat/completions` : `${baseUrl}/v1/chat/completions`;
   const upstream = await fetch(completionsUrl, {
@@ -97,7 +98,7 @@ async function anthropicChat(messages, context, selectedModel) {
 const server = http.createServer(async (req, res) => {
   try {
     if (req.method === "OPTIONS") return send(res, 204, {});
-    if (req.method === "GET" && req.url === "/health") return send(res, 200, { ok: true, providers: ["openai", "anthropic", "self-hosted"], model });
+    if (req.method === "GET" && req.url === "/health") return send(res, 200, { ok: true, providers: ["openai", "anthropic", "nvidia", "self-hosted"], model });
     if (req.method !== "POST" || req.url !== "/v1/chat") return send(res, 404, { error: "Not found" });
     if (!allowed(req)) return send(res, 401, { error: "Invalid client token" });
     if (!withinRateLimit(req)) return send(res, 429, { error: "Rate limit exceeded" });
