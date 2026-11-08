@@ -5,6 +5,7 @@
         android:allowBackup="true"
         android:label="CursorAi"
         android:supportsRtl="true"
+        android:usesCleartextTraffic="true"
         android:theme="@style/Theme.CursorAi">
         <activity
             android:name=".MainActivity"
