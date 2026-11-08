@@ -50,6 +50,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -58,6 +59,10 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.cursorai.app.ai.AiAssistant
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private val Navy = Color(0xFF0B1020)
 private val Panel = Color(0xFF11182B)
@@ -81,6 +86,11 @@ private fun CursorAiApp() {
     var prompt by remember { mutableStateOf("") }
     var activeFile by remember { mutableStateOf("MainActivity.kt") }
     var isRunning by remember { mutableStateOf(false) }
+    var answer by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf("") }
+    var isThinking by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val assistant = remember { AiAssistant() }
     MaterialTheme {
         Surface(modifier = Modifier.fillMaxSize(), color = Navy) {
             Column {
@@ -93,7 +103,28 @@ private fun CursorAiApp() {
                         CodeEditor(activeFile = activeFile)
                         BottomPanel(isRunning = isRunning, onRun = { isRunning = true })
                     }
-                    PromptPanel(prompt = prompt, onPromptChange = { prompt = it }, onSend = { prompt = "" })
+                    PromptPanel(
+                        prompt = prompt,
+                        answer = answer,
+                        error = error,
+                        isThinking = isThinking,
+                        onPromptChange = { prompt = it },
+                        onSend = {
+                            if (prompt.isNotBlank() && !isThinking) {
+                                val requestedPrompt = prompt.trim()
+                                prompt = ""
+                                answer = ""
+                                error = ""
+                                isThinking = true
+                                scope.launch {
+                                    val result = withContext(Dispatchers.IO) { assistant.ask(requestedPrompt) }
+                                    result.onSuccess { answer = it }
+                                        .onFailure { error = it.message ?: "Unable to reach the AI service" }
+                                    isThinking = false
+                                }
+                            }
+                        }
+                    )
                 }
             }
         }
@@ -225,14 +256,21 @@ private fun BottomPanel(isRunning: Boolean, onRun: () -> Unit) {
 }
 
 @Composable
-private fun PromptPanel(prompt: String, onPromptChange: (String) -> Unit, onSend: () -> Unit) {
+private fun PromptPanel(
+    prompt: String,
+    answer: String,
+    error: String,
+    isThinking: Boolean,
+    onPromptChange: (String) -> Unit,
+    onSend: () -> Unit,
+) {
     Column(modifier = Modifier.width(295.dp).fillMaxHeight().background(Panel).padding(12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("AI WORKSPACE", color = TextMain, fontSize = 12.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.weight(1f))
             Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Green, modifier = Modifier.size(15.dp))
         }
-        Text("Interface mode • API not connected", color = TextMuted, fontSize = 11.sp, modifier = Modifier.padding(top = 5.dp))
+        Text(if (isThinking) "Contacting OpenAI securely…" else "OpenAI backend connected", color = if (isThinking) Orange else Green, fontSize = 11.sp, modifier = Modifier.padding(top = 5.dp))
         Spacer(Modifier.height(16.dp))
         Text("What should we build?", color = TextMain, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
         Text("Describe a change and review the suggested diff before applying it.", color = TextMuted, fontSize = 11.sp, modifier = Modifier.padding(top = 5.dp))
@@ -243,13 +281,19 @@ private fun PromptPanel(prompt: String, onPromptChange: (String) -> Unit, onSend
             modifier = Modifier.fillMaxWidth().height(112.dp),
             placeholder = { Text("e.g. Add a login screen...", color = TextMuted, fontSize = 12.sp) },
             textStyle = MaterialTheme.typography.bodySmall.copy(color = TextMain),
-            maxLines = 5
+            maxLines = 5,
+            enabled = !isThinking
         )
         Spacer(Modifier.height(8.dp))
-        Button(onClick = onSend, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Blue, contentColor = Navy), shape = RoundedCornerShape(7.dp)) {
+        Button(onClick = onSend, enabled = prompt.isNotBlank() && !isThinking, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Blue, contentColor = Navy), shape = RoundedCornerShape(7.dp)) {
             Icon(Icons.Default.Send, contentDescription = null, modifier = Modifier.size(16.dp))
             Spacer(Modifier.width(6.dp))
-            Text("Generate plan", fontWeight = FontWeight.Bold)
+            Text(if (isThinking) "Thinking…" else "Ask CursorAi", fontWeight = FontWeight.Bold)
+        }
+        if (answer.isNotBlank() || error.isNotBlank()) {
+            Spacer(Modifier.height(14.dp))
+            Text("RESPONSE", color = TextMuted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            Text(answer.ifBlank { error }, color = if (error.isBlank()) TextMain else Color(0xFFFF8A8A), fontSize = 12.sp, modifier = Modifier.padding(top = 7.dp).verticalScroll(rememberScrollState()))
         }
         Spacer(Modifier.height(22.dp))
         Text("QUICK ACTIONS", color = TextMuted, fontSize = 10.sp, fontWeight = FontWeight.Bold)

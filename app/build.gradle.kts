@@ -7,6 +7,7 @@ plugins {
 android {
     namespace = "com.cursorai.app"
     compileSdk = 35
+    buildFeatures { compose = true; buildConfig = true }
 
     defaultConfig {
         applicationId = "com.cursorai.app"
@@ -14,6 +15,8 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "0.1.0"
+        buildConfigField("String", "CURSORAI_API_BASE_URL", "\"${providers.gradleProperty("cursoraiApiBaseUrl").orElse("http://10.0.2.2:8080").get()}\"")
+        buildConfigField("String", "CURSORAI_CLIENT_TOKEN", "\"${providers.gradleProperty("cursoraiClientToken").orElse("").get()}\"")
     }
 
     buildTypes {
@@ -31,7 +34,6 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = "17" }
-    buildFeatures { compose = true }
 }
 
 dependencies {
@@ -44,5 +46,6 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.material.icons)
+    implementation(libs.kotlinx.coroutines.android)
     debugImplementation(libs.androidx.compose.ui.tooling)
 }

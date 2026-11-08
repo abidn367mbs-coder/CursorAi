@@ -32,4 +32,4 @@ Keep UI state independent from the provider. A recommended next step is to add a
 
 ## Current limitations
 
-This is an interface-first prototype. The editor, project file system, terminal commands, and AI responses are visual interaction surfaces only; they do not yet execute arbitrary code or call an AI API. Those capabilities should be added with sandboxing, explicit permissions, and a backend before production release.
+The AI Workspace now calls the included OpenAI backend. The editor, project file system, and terminal remain intentionally scoped UI surfaces; arbitrary code execution and file mutation need an additional sandbox/permission layer before enabling them in production. See [DEPLOYMENT.md](DEPLOYMENT.md) for backend setup, API configuration, and release signing.
